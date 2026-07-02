@@ -1,13 +1,13 @@
 import os
 import streamlit as st
 
-# Updated imports for modern LangChain
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
+# Updated imports to use langchain_classic
+from langchain_classic.chains import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_pinecone import PineconeVectorStore
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# ... the rest of your app code ...
 # 1. Setup
 st.title("My RAG Website")
 os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
