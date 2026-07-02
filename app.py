@@ -9,7 +9,7 @@ from langchain_pinecone import PineconeVectorStore
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 # ... the rest of your app code ...
 # 1. Setup
-st.title("My RAG Website")
+st.title("HR-ONBOARDING AGENTIC AI")
 os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
 os.environ["PINECONE_API_KEY"] = st.secrets["PINECONE_API_KEY"]
 
