@@ -19,7 +19,7 @@ vectorstore = PineconeVectorStore(index_name="gemini-rag-3072-working", embeddin
 retriever = vectorstore.as_retriever()
 
 # 3. Setup LLM and Chain
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash-002")
 prompt = ChatPromptTemplate.from_template("Answer based on: {context} \n\nQuestion: {input}")
 chain = create_retrieval_chain(retriever, create_stuff_documents_chain(llm, prompt))
 
