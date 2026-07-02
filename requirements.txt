@@ -2,3 +2,8 @@ streamlit
 langchain
 langchain-core
 langchain-pinecone
+langchain-community
+langchain-pinecone
+langchain-google-genai
+langchain-text-splitters
+pypdf
