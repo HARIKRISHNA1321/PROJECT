@@ -86,7 +86,7 @@ def dashboard_page():
     vectorstore = PineconeVectorStore(index_name="gemini-rag-3072-working", embedding=embeddings)
     retriever = vectorstore.as_retriever()
     
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
+    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash")
     prompt = ChatPromptTemplate.from_template("Answer based on: {context} \n\nQuestion: {input}")
     
     # Using the classic chains here
