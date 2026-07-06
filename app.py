@@ -82,7 +82,7 @@ def dashboard_page():
     os.environ["PINECONE_API_KEY"] = st.secrets["PINECONE_API_KEY"]
 
     # Setup Pinecone & Langchain
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
     vectorstore = PineconeVectorStore(index_name="gemini-rag-3072-working", embedding=embeddings)
     retriever = vectorstore.as_retriever()
     
