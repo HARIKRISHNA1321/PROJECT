@@ -85,13 +85,6 @@ def employee_dashboard():
     
     # Sidebar: Profile & Leave Request
     with st.sidebar:
-        # --- 4. PAGE: EMPLOYEE DASHBOARD & AI ---
-def employee_dashboard():
-    user = st.session_state.current_user
-    st.title("Staff Dashboard & Support")
-    
-    # Sidebar: Profile & Leave Request
-    with st.sidebar:
         st.header("Profile")
         st.write(f"**Name:** {user.get('full_name', 'N/A')}")
         st.write(f"**Role:** {user.get('role', 'N/A')}")
@@ -105,8 +98,6 @@ def employee_dashboard():
             st.rerun()
             
         st.divider()
-        
-        # ... (rest of your leave letter code stays the same) ...
         
         st.subheader("Submit Leave Letter")
         with st.form("leave_form", clear_on_submit=True):
@@ -153,14 +144,13 @@ def employee_dashboard():
 def hr_dashboard():
     st.title("HR Administration Dashboard")
     st.write("Manage applications, personnel, and leave requests.")
+    
     with st.sidebar:
         if st.button("Log Out / Switch User"):
             st.session_state.current_user = {}
             navigate_to("login")
             st.rerun()
 
-    st.title("HR Administration Dashboard")
-    st.write("Manage applications, personnel, and leave requests.")
     # 5A. New Applications
     st.header("1. New Applications")
     if not st.session_state.db_applications:
