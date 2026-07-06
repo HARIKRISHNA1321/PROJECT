@@ -1,9 +1,9 @@
 import os
 import streamlit as st
 
-# Langchain Imports
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
+# Updated imports to use langchain_classic
+from langchain_classic.chains import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_pinecone import PineconeVectorStore
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -34,8 +34,6 @@ def login_page():
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Log In / Sign Up")
         
-        # In a real app, you would verify against a database here.
-        # For this assignment, we just accept any input and move forward.
         if submitted:
             if username and password:
                 st.session_state.user_info['username'] = username
@@ -77,20 +75,21 @@ def dashboard_page():
         st.divider()
         
         st.subheader("Onboarding Status")
-        # You can tie this status variable to your AI logic later to change it dynamically
         st.warning(st.session_state.employee_status)
     
     # Load API Keys securely
     os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
     os.environ["PINECONE_API_KEY"] = st.secrets["PINECONE_API_KEY"]
 
-    # Setup Pinecone & Langchain (Your existing code)
+    # Setup Pinecone & Langchain
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     vectorstore = PineconeVectorStore(index_name="gemini-rag-3072-working", embedding=embeddings)
     retriever = vectorstore.as_retriever()
     
     llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
     prompt = ChatPromptTemplate.from_template("Answer based on: {context} \n\nQuestion: {input}")
+    
+    # Using the classic chains here
     chain = create_retrieval_chain(retriever, create_stuff_documents_chain(llm, prompt))
     
     # Chat Interface
@@ -101,7 +100,6 @@ def dashboard_page():
             st.success(response["answer"])
 
 # --- 5. MAIN ROUTER LOGIC ---
-# This block decides which function runs based on the current session state
 if st.session_state.current_page == "login":
     login_page()
 elif st.session_state.current_page == "details":
