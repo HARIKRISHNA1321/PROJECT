@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
+from supabase import create_client, Client
 
 # Langchain Imports
 from langchain_classic.chains import create_retrieval_chain
@@ -9,21 +10,21 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_pinecone import PineconeVectorStore
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 
-# --- 1. MOCK DATABASE (SESSION STATE) ---
+# --- 1. SETUP CLOUD DATABASE & SESSION ---
+@st.cache_resource
+def init_connection():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+supabase: Client = init_connection()
+
 if "current_page" not in st.session_state:
     st.session_state.current_page = "login"
 if "current_user" not in st.session_state:
     st.session_state.current_user = {}
 
-# Storing lists of dictionaries to act as our database tables
-if "db_employees" not in st.session_state:
-    st.session_state.db_employees = []
-if "db_applications" not in st.session_state:
-    st.session_state.db_applications = []
-if "db_leaves" not in st.session_state:
-    st.session_state.db_leaves = []
-
-# Navigation Helpers
+# Navigation Helper
 def navigate_to(page):
     st.session_state.current_page = page
 
@@ -65,13 +66,13 @@ def details_page():
                 st.session_state.current_user['department'] = department
                 st.session_state.current_user['status'] = "Pending HR Approval"
                 
-                # Add to HR's application database
-                st.session_state.db_applications.append({
-                    "Name": full_name,
-                    "Role": st.session_state.current_user['role'],
-                    "Department": department,
-                    "Status": "Pending"
-                })
+                # Insert directly into Supabase 'applications' table
+                supabase.table("applications").insert({
+                    "name": full_name,
+                    "role": st.session_state.current_user['role'],
+                    "department": department,
+                    "status": "Pending"
+                }).execute()
                 
                 navigate_to("employee_dashboard")
                 st.rerun()
@@ -91,9 +92,8 @@ def employee_dashboard():
         st.write(f"**Dept:** {user.get('department', 'N/A')}")
         st.warning(f"Status: {user.get('status', 'Unknown')}")
         
-        # ADD THIS LOG OUT BUTTON HERE:
         if st.button("Log Out / Switch User"):
-            st.session_state.current_user = {} # Clear the user data
+            st.session_state.current_user = {} 
             navigate_to("login")
             st.rerun()
             
@@ -106,13 +106,14 @@ def employee_dashboard():
             submit_leave = st.form_submit_button("Send to HR")
             
             if submit_leave and leave_dates:
-                st.session_state.db_leaves.append({
-                    "Name": user.get('full_name', 'N/A'),
-                    "Department": user.get('department', 'N/A'),
-                    "Dates": leave_dates,
-                    "Reason": leave_reason,
-                    "Status": "Pending"
-                })
+                # Insert directly into Supabase 'leaves' table
+                supabase.table("leaves").insert({
+                    "name": user.get('full_name', 'N/A'),
+                    "department": user.get('department', 'N/A'),
+                    "dates": leave_dates,
+                    "reason": leave_reason,
+                    "status": "Pending"
+                }).execute()
                 st.success("Leave letter sent to HR.")
 
     # Load API Keys
@@ -122,12 +123,11 @@ def employee_dashboard():
     st.subheader("Onboarding AI Assistant")
     
     try:
-        # Setup Models as requested
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
         vectorstore = PineconeVectorStore(index_name="gemini-rag-3072-working", embedding=embeddings)
         retriever = vectorstore.as_retriever()
         
-        llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash")
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
         prompt = ChatPromptTemplate.from_template("Answer based on: {context} \n\nQuestion: {input}")
         
         chain = create_retrieval_chain(retriever, create_stuff_documents_chain(llm, prompt))
@@ -151,47 +151,65 @@ def hr_dashboard():
             navigate_to("login")
             st.rerun()
 
+    # Fetch live data from Supabase
+    db_applications = supabase.table("applications").select("*").eq("status", "Pending").execute().data
+    db_leaves = supabase.table("leaves").select("*").eq("status", "Pending").execute().data
+    db_employees = supabase.table("employees").select("*").execute().data
+
     # 5A. New Applications
     st.header("1. New Applications")
-    if not st.session_state.db_applications:
+    if not db_applications:
         st.write("No new applications.")
     else:
-        for idx, app in enumerate(st.session_state.db_applications):
+        for app in db_applications:
             col1, col2, col3 = st.columns([3, 1, 1])
-            col1.write(f"**{app['Name']}** - {app['Role']} ({app['Department']})")
-            if col2.button("Approve", key=f"app_approve_{idx}"):
-                # Move to employee DB and remove from apps
-                app['Status'] = 'Approved'
-                st.session_state.db_employees.append(app)
-                st.session_state.db_applications.pop(idx)
+            col1.write(f"**{app['name']}** - {app['role']} ({app['department']})")
+            
+            # Note: We now use the unique database 'id' for button keys!
+            if col2.button("Approve", key=f"app_approve_{app['id']}"):
+                # Add to employees table
+                supabase.table("employees").insert({
+                    "full_name": app['name'],
+                    "role": app['role'],
+                    "department": app['department'],
+                    "status": "Active"
+                }).execute()
+                # Delete from applications table
+                supabase.table("applications").delete().eq("id", app['id']).execute()
                 st.rerun()
-            if col3.button("Reject", key=f"app_reject_{idx}"):
-                st.session_state.db_applications.pop(idx)
+                
+            if col3.button("Reject", key=f"app_reject_{app['id']}"):
+                # Delete from applications table
+                supabase.table("applications").delete().eq("id", app['id']).execute()
                 st.rerun()
 
     st.divider()
 
     # 5B. Leave Requests
     st.header("2. Pending Leave Letters")
-    if not st.session_state.db_leaves:
+    if not db_leaves:
         st.write("No pending leave requests.")
     else:
-        for idx, leave in enumerate(st.session_state.db_leaves):
-            if leave["Status"] == "Pending":
-                st.write(f"**{leave['Name']}** ({leave['Department']}) | Dates: {leave['Dates']}")
-                st.write(f"Reason: {leave['Reason']}")
-                col1, col2 = st.columns([1, 8])
-                if col1.button("Approve Leave", key=f"leave_{idx}"):
-                    st.session_state.db_leaves[idx]["Status"] = "Approved"
-                    st.rerun()
+        for leave in db_leaves:
+            st.write(f"**{leave['name']}** ({leave['department']}) | Dates: {leave['dates']}")
+            st.write(f"Reason: {leave['reason']}")
+            col1, col2 = st.columns([1, 8])
+            
+            if col1.button("Approve Leave", key=f"leave_{leave['id']}"):
+                # Update status in the leaves table
+                supabase.table("leaves").update({"status": "Approved"}).eq("id", leave['id']).execute()
+                st.rerun()
 
     st.divider()
 
     # 5C. Employee Directory
     st.header("3. Employee Directory")
-    if st.session_state.db_employees:
-        # Using Pandas to display a clean table in Streamlit
-        df = pd.DataFrame(st.session_state.db_employees)
+    if db_employees:
+        # Convert the Supabase JSON response to a Pandas DataFrame
+        df = pd.DataFrame(db_employees)
+        # Drop the database ID column so it looks cleaner on the dashboard
+        if 'id' in df.columns:
+            df = df.drop(columns=['id'])
         st.dataframe(df, use_container_width=True)
     else:
         st.write("No active employees in the system yet.")
