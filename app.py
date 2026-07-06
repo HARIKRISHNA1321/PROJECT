@@ -43,8 +43,10 @@ def login_page():
             
             if role == "HR":
                 navigate_to("hr_dashboard")
+                st.rerun()
             else:
                 navigate_to("details")
+                st.rerun()
 
 # --- 3. PAGE: APPLICATION / DETAILS ---
 def details_page():
@@ -56,21 +58,25 @@ def details_page():
         department = st.selectbox("Department", ["CSE", "CSE(AIML)", "ECE", "ME", "EEE"])
         submitted = st.form_submit_button("Submit Application to HR")
         
-        if submitted and full_name:
-            # Save to user session
-            st.session_state.current_user['full_name'] = full_name
-            st.session_state.current_user['department'] = department
-            st.session_state.current_user['status'] = "Pending HR Approval"
-            
-            # Add to HR's application database
-            st.session_state.db_applications.append({
-                "Name": full_name,
-                "Role": st.session_state.current_user['role'],
-                "Department": department,
-                "Status": "Pending"
-            })
-            
-            navigate_to("employee_dashboard")
+        if submitted:
+            if full_name:
+                # Save to user session
+                st.session_state.current_user['full_name'] = full_name
+                st.session_state.current_user['department'] = department
+                st.session_state.current_user['status'] = "Pending HR Approval"
+                
+                # Add to HR's application database
+                st.session_state.db_applications.append({
+                    "Name": full_name,
+                    "Role": st.session_state.current_user['role'],
+                    "Department": department,
+                    "Status": "Pending"
+                })
+                
+                navigate_to("employee_dashboard")
+                st.rerun()
+            else:
+                st.error("Please fill out all fields.")
 
 # --- 4. PAGE: EMPLOYEE DASHBOARD & AI ---
 def employee_dashboard():
@@ -143,6 +149,7 @@ def hr_dashboard():
             col1.write(f"**{app['Name']}** - {app['Role']} ({app['Department']})")
             if col2.button("Approve", key=f"app_approve_{idx}"):
                 # Move to employee DB and remove from apps
+                app['Status'] = 'Approved'
                 st.session_state.db_employees.append(app)
                 st.session_state.db_applications.pop(idx)
                 st.rerun()
@@ -186,54 +193,3 @@ elif st.session_state.current_page == "employee_dashboard":
     employee_dashboard()
 elif st.session_state.current_page == "hr_dashboard":
     hr_dashboard()
-                st.session_state.user_info['department'] = department
-                st.session_state.user_info['role'] = role
-                go_to_dashboard()
-            else:
-                st.error("Please fill out all fields.")
-
-# --- 4. PAGE: DASHBOARD & AI AGENT ---
-def dashboard_page():
-    st.title("HR-ONBOARDING AGENTIC AI")
-    
-    # UI Sidebar: Display the requested Employee Status and Details
-    with st.sidebar:
-        st.header("Employee Profile")
-        st.write(f"**Name:** {st.session_state.user_info.get('full_name', 'N/A')}")
-        st.write(f"**Role:** {st.session_state.user_info.get('role', 'N/A')}")
-        st.write(f"**Dept:** {st.session_state.user_info.get('department', 'N/A')}")
-        
-        st.divider()
-        
-        st.subheader("Onboarding Status")
-        st.warning(st.session_state.employee_status)
-    
-    # Load API Keys securely
-    os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
-    os.environ["PINECONE_API_KEY"] = st.secrets["PINECONE_API_KEY"]
-
-    # Setup Pinecone & Langchain
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
-    vectorstore = PineconeVectorStore(index_name="gemini-rag-3072-working", embedding=embeddings)
-    retriever = vectorstore.as_retriever()
-    
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash")
-    prompt = ChatPromptTemplate.from_template("Answer based on: {context} \n\nQuestion: {input}")
-    
-    # Using the classic chains here
-    chain = create_retrieval_chain(retriever, create_stuff_documents_chain(llm, prompt))
-    
-    # Chat Interface
-    query = st.text_input("Ask a question about your onboarding policies:")
-    if query:
-        with st.spinner("Searching company database..."):
-            response = chain.invoke({"input": query})
-            st.success(response["answer"])
-
-# --- 5. MAIN ROUTER LOGIC ---
-if st.session_state.current_page == "login":
-    login_page()
-elif st.session_state.current_page == "details":
-    details_page()
-elif st.session_state.current_page == "dashboard":
-    dashboard_page()
